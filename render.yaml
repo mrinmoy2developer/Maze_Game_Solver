@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: maze-solver-backend
+    runtime: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "gunicorn server:app"
+    workingDir: backend
+    envVars:
+      - key: PORT
+        value: 10000
