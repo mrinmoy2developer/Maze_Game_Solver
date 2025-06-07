@@ -110,7 +110,6 @@ async function fetchGameState(url,mode) {
     }
     else{
         const {round:{board,claps,towers}}=await fetchJson(bURL);
-        logToPopup('Here!');
         return {board,claps,towers};
     }
 }
@@ -127,8 +126,10 @@ async function sendToBackend(gameData, settings) {
   };
 
   logToPopup(`Sending to backend with ${settings.algorithm} algorithm...`);
-  
-  const response = await fetch("http://127.0.0.1:5000/solver", {
+//   const url_backend='https://maze-game-solver.onrender.com/solver';  //for production
+//   const url_backend='http://127.0.0.1:5000/solver'; // for development
+    // logToPopup(`backend url:${settings.backendUrl}`);
+    const response = await fetch(`${settings.backendUrl}/solver`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -203,14 +204,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       logToPopup(`Found current game mode: ${gameMode}`);
       
       // Use settings from the message, or defaults if not provided
-      const settings = message.settings || {
+      const settings = {
         maxIterations: 10000,
         randomSeed: 42,
-        algorithm: 'optimal'
+        algorithm: 'optimal',
+        backend: 'python',
+        backendUrl:'https://maze-game-solver.onrender.com',
+        ...message.settings
       };
-      
-      logToPopup(`Settings: ${settings.algorithm}, iter=${settings.maxIterations}, seed=${settings.randomSeed}`);
-      
+      if (!settings.backendUrl || settings.backendUrl.trim() === ''||settings.backend!='custom')
+        settings.backendUrl = 'https://maze-game-solver.onrender.com';
+      logToPopup(`Settings: ${settings.algorithm}, iter=${settings.maxIterations}, seed=${settings.randomSeed},backend=${settings.backend}`);
+      if(settings.backend==='custom')logToPopup(`Using Custom backend ${settings.backendUrl}...`)
+
       extractAndExecute(url, gameMode, settings);
       sendResponse({ status: "started" });
     } else {

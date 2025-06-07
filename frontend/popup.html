@@ -5,9 +5,9 @@
   <style>
     body {
       background-image: url('./bkg_pic.jpg');
-      background-size: auto;
+      background-size: 150px 150px;
       background-position: center;
-      background-repeat: no-repeat;
+      background-repeat: repeat;
       font-family: Arial; 
       margin: 10px;
       height: 400px; 
@@ -51,8 +51,9 @@
       cursor: pointer;
       box-shadow: 0 4px 8px rgba(0, 255, 150, 0.3);
       transition: all 0.2s ease-in-out;
-      width: 100%;
+      width: 70%;
       margin-bottom: 10px;
+      margin-left: 4%;
     }
     #runBtn:hover {
       transform: scale(1.05);
@@ -69,11 +70,13 @@
       font-family: 'Comic Sans', monospace;
     }
     .settings-container {
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.8);
       border-radius: 8px;
       padding: 10px;
       margin-bottom: 10px;
-      border: 1px solid #ddd;
+      border: 3px solid #3525e1;
+      overflow-y: auto;
+      max-height: 120px;
     }
     .setting-group {
       margin-bottom: 8px;
@@ -124,12 +127,21 @@
     
     <div class="setting-group">
       <label for="algorithm">Algorithm:</label>
-      <select id="algorithm">
-        <option value="optimal">Optimal</option>
-        <option value="greedy">Greedy</option>
-        <option value="genetic">Genetic</option>
-        <option value="simulated">Simulated</option>
+      <select id="algorithm" style="width: 45%;">
+        <option>Loading...</option>
       </select>
+    </div>
+    <div class="setting-group">
+      <label for="backendSelect">Backend:</label>
+      <select id="backendSelect" style="width: 45%;">
+        <option value="python">Python</option>
+        <option value="custom">Custom backend</option>
+      </select>
+    </div>
+
+    <div class="setting-group" id="customBackendGroup" style="display: none;">
+      <label for="customBackendUrl">URL:</label>
+      <input type="text" id="backendUrl" style="width: 60%;" placeholder="https://example.com/api">
     </div>
   </div>
 

@@ -2,11 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const runBtn = document.getElementById("runBtn");
   const loader = document.getElementById("loader");
   const logs = document.getElementById("logs");
-  
+
   // Settings elements
   const maxIterationsInput = document.getElementById("maxIterations");
   const randomSeedInput = document.getElementById("randomSeed");
   const algorithmSelect = document.getElementById("algorithm");
+  const backendSelect = document.getElementById("backendSelect");
+  const customBackendGroup = document.getElementById("customBackendGroup");
+  const backendUrlInput = document.getElementById("backendUrl");
 
   // Modal elements
   const modal = document.getElementById("confirmModal");
@@ -14,8 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
 
-  // Load saved settings
+  // Load saved settings first
   loadSettings();
+
+  // Then fetch dynamic options
+  fetchBackendAndAlgorithms();
 
   runBtn.onclick = () => {
     const skip = localStorage.getItem("skipSolverConfirm");
@@ -42,114 +48,163 @@ document.addEventListener("DOMContentLoaded", () => {
   maxIterationsInput.onchange = saveSettings;
   randomSeedInput.onchange = saveSettings;
   algorithmSelect.onchange = saveSettings;
+  backendSelect.onchange = () => {
+    saveSettings();
+    updateCustomBackendVisibility();
+  };
+  backendUrlInput.onchange = saveSettings;
 
   function loadSettings() {
-    const savedMaxIter = localStorage.getItem("solverMaxIterations");
-    const savedSeed = localStorage.getItem("solverRandomSeed");
-    const savedAlgorithm = localStorage.getItem("solverAlgorithm");
-
-    if (savedMaxIter) maxIterationsInput.value = savedMaxIter;
-    if (savedSeed) randomSeedInput.value = savedSeed;
-    if (savedAlgorithm) algorithmSelect.value = savedAlgorithm;
+    maxIterationsInput.value = localStorage.getItem("solverMaxIterations") || 1000;
+    randomSeedInput.value = localStorage.getItem("solverRandomSeed") || 42;
+    algorithmSelect.dataset.selected = localStorage.getItem("solverAlgorithm");
+    backendSelect.dataset.selected = localStorage.getItem("solverBackend");
+    backendUrlInput.value = localStorage.getItem("solverbackendUrl") || "";
+    updateCustomBackendVisibility();
   }
 
   function saveSettings() {
     localStorage.setItem("solverMaxIterations", maxIterationsInput.value);
     localStorage.setItem("solverRandomSeed", randomSeedInput.value);
     localStorage.setItem("solverAlgorithm", algorithmSelect.value);
+    localStorage.setItem("solverBackend", backendSelect.value);
+    localStorage.setItem("solverbackendUrl", backendUrlInput.value);
+  }
+
+  function updateCustomBackendVisibility() {
+    customBackendGroup.style.display = backendSelect.value === "custom" ? "flex" : "none";
   }
 
   function getSettings() {
+    if(backendSelect.value!='custom')
+        // backendUrlInput.value='https://maze-game-solver.onrender.com';
+        backendUrlInput.value='http://127.0.0.1:5000';
     return {
       maxIterations: parseInt(maxIterationsInput.value),
       randomSeed: parseInt(randomSeedInput.value),
-      algorithm: algorithmSelect.value
+      algorithm: algorithmSelect.value,
+      backend: backendSelect.value,
+      backendUrl: backendUrlInput.value
     };
   }
+
+  function isNumeric(str) {
+    return /^\d+$/.test(str);
+  }
+
   function getGameMode(url) {
-    const modes=['challenge','puzzle','arena','academy','daily'];
+    const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
     const parts = url.split('/');
-    if(parts.length<5)return -1;
-    if(parts[3]==='challenge'){
-        if(isNumeric(parts[4]))return 'challenge';
-        else if(parts[4]==='daily')return 'daily';
-    }
-    else if(modes.includes(parts[3]))return parts[3];
+    if (parts.length < 5) return -1;
+    if (parts[3] === 'challenge') {
+      if (isNumeric(parts[4])) return 'challenge';
+      else if (parts[4] === 'daily') return 'daily';
+    } else if (modes.includes(parts[3])) return parts[3];
     return -1;
-}
+  }
 
   function triggerSolver() {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const currentTab = tabs[0];
-    const url = currentTab.url;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      const url = currentTab.url;
 
-    if (getGameMode(url)==-1) {
-      loader.style.display = "none";
-      logs.textContent = "Invalid URL!Solver can only run on valid maze game tabs!\n";
-      return;
-    }
-    // Save current settings
-    saveSettings();
-    
-    const settings = getSettings();
-    
-    loader.style.display = "block";
-    logs.textContent = `Starting solver with settings:\n`;
-    logs.textContent += `Algorithm: ${settings.algorithm}\n`;
-    logs.textContent += `Max Iterations: ${settings.maxIterations}\n`;
-    logs.textContent += `Random Seed: ${settings.randomSeed}\n`;
-    logs.textContent += "Resetting and solving...\n";
-    
-    // Send settings along with the solver request
-    chrome.runtime.sendMessage({ 
-      type: "RUN_SOLVER",
-      settings: settings
-    }, response => {
-      if (response && response.status === "started") {
-        logs.textContent += "Solver started...\n";
-      } else if (response && response.status === "error") {
-        logs.textContent += `Error: ${response.message}\n`;
+      if (getGameMode(url) === -1) {
         loader.style.display = "none";
+        logs.textContent = "Invalid URL! Solver can only run on valid maze game tabs!\n";
+        return;
       }
-    });
-  });
-}
-//   function triggerSolver() {
-//     // Save current settings
-//     saveSettings();
-    
-//     const settings = getSettings();
-    
-//     loader.style.display = "block";
-//     logs.textContent = `Starting solver with settings:\n`;
-//     logs.textContent += `Algorithm: ${settings.algorithm}\n`;
-//     logs.textContent += `Max Iterations: ${settings.maxIterations}\n`;
-//     logs.textContent += `Random Seed: ${settings.randomSeed}\n`;
-//     logs.textContent += "Resetting and solving...\n";
-    
-//     // Send settings along with the solver request
-//     chrome.runtime.sendMessage({ 
-//       type: "RUN_SOLVER",
-//       settings: settings
-//     }, response => {
-//       if (response && response.status === "started") {
-//         logs.textContent += "Solver started...\n";
-//       } else if (response && response.status === "error") {
-//         logs.textContent += `Error: ${response.message}\n`;
-//         loader.style.display = "none";
-//       }
-//     });
-//   }
 
-  // Listen for messages from background script
+      saveSettings();
+      const settings = getSettings();
+
+      loader.style.display = "block";
+      logs.textContent = `Starting solver with settings:\n`;
+      logs.textContent += `Algorithm: ${settings.algorithm}\n`;
+      logs.textContent += `Max Iterations: ${settings.maxIterations}\n`;
+      logs.textContent += `Random Seed: ${settings.randomSeed}\n`;
+      logs.textContent += `Backend: ${settings.backend}\n`;
+      if (settings.backend === "custom") {
+        logs.textContent += `Custom URL: ${settings.backendUrl}\n`;
+      }
+      logs.textContent += "Resetting and solving...\n";
+
+      chrome.runtime.sendMessage({
+        type: "RUN_SOLVER",
+        settings: settings
+      }, response => {
+        if (response && response.status === "started") {
+          logs.textContent += "Solver started...\n";
+        } else if (response && response.status === "error") {
+          logs.textContent += `Error: ${response.message}\n`;
+          loader.style.display = "none";
+        }
+      });
+    });
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "MAZE_SOLVER_LOG") {
       logs.textContent += message.text + "\n";
       logs.scrollTop = logs.scrollHeight;
     }
-    
+
     if (message.type === "SOLVER_COMPLETE") {
       loader.style.display = "none";
     }
   });
+function logToPopup(msg) {
+  chrome.runtime.sendMessage({ type: "MAZE_SOLVER_LOG", text: msg });
+}
+  async function fetchBackendAndAlgorithms() {
+    const settings = getSettings();
+    const backendUrl = settings.backendUrl; // Replace with a fallback or default
+    try {
+      // Show loading indicators
+      algorithmSelect.innerHTML = `<option disabled selected>Loading...</option>`;
+      backendSelect.innerHTML = `<option disabled selected>Loading...</option>`;
+      const response = await fetch(`${backendUrl}/available`);
+      if (!response.ok) throw new Error("Backend fetch failed");
+      const data = await response.json();
+
+      const algorithms = data.algorithms || ["optimal", "greedy", "genetic", "simulated"];
+      const backends = data.backends || ['python', 'custom'];
+      algorithmSelect.innerHTML = "";
+      algorithms.forEach(alg => {
+        const opt = document.createElement("option");
+        opt.value = alg;
+        opt.textContent = alg;
+        algorithmSelect.appendChild(opt);
+      });
+
+      backendSelect.innerHTML = "";
+      backends.forEach(be => {
+        const opt = document.createElement("option");
+        opt.value = be;
+        opt.textContent = be;
+        backendSelect.appendChild(opt);
+      });
+      // Restore selected if available
+      if (algorithmSelect.dataset.selected) {
+        algorithmSelect.value = algorithmSelect.dataset.selected;
+      }
+      if (backendSelect.dataset.selected) {
+        backendSelect.value = backendSelect.dataset.selected;
+        updateCustomBackendVisibility();
+      }
+    } catch (err) {
+      logs.textContent += `⚠️ Failed to fetch options from backend. Using defaults.\n`;
+
+      // Populate with default options
+      algorithmSelect.innerHTML = `<option value="optimal">Optimal</option><option value="greedy">Greedy</option>`;
+      backendSelect.innerHTML = `<option value="python">Python</option><option value="custom">Custom URL</option>`;
+
+      if (algorithmSelect.dataset.selected) {
+        algorithmSelect.value = algorithmSelect.dataset.selected;
+      }
+      if (backendSelect.dataset.selected) {
+        backendSelect.value = backendSelect.dataset.selected;
+        updateCustomBackendVisibility();
+      }
+    }
+  }
 });

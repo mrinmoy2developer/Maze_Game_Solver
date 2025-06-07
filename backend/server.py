@@ -93,22 +93,23 @@ def debug_route():
             "form": request.form.to_dict()
         })
 
-@app.route('/health', methods=['GET'])
-def health_check():
+@app.route('/available', methods=['GET'])
+def available_options():
     return jsonify({
         "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "supported_algorithms": ["optimal", "greedy", "genetic", "simulated"]
+         "timestamp": datetime.now().isoformat(),
+        "algorithms": ["optimal", "greedy", "genetic", "simulated"],
+        "backends": ["python",'custom']
     })
 
-# if __name__ == "__main__": #for local deploy
-#     print("Starting Maze Solver Server...")
-#     print("Supported algorithms: optimal, greedy, genetic, simulated")
-#     print("Server running on http://127.0.0.1:5000")
-#     app.run(port=5000, debug=True)
-if __name__ == "__main__":  #for hosting on render.com
-    port = int(os.environ.get("PORT", 5000))
+if __name__ == "__main__": #for local deploy
     print("Starting Maze Solver Server...")
     print("Supported algorithms: optimal, greedy, genetic, simulated")
-    print(f"Server running on http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port)
+    print("Server running on http://127.0.0.1:5000")
+    app.run(port=5000, debug=True)
+# if __name__ == "__main__":  #for hosting on render.com
+#     port = int(os.environ.get("PORT", 5000))
+#     print("Starting Maze Solver Server...")
+#     print("Supported algorithms: optimal, greedy, genetic, simulated")
+#     print(f"Server running on http://0.0.0.0:{port}")
+#     app.run(host="0.0.0.0", port=port)
