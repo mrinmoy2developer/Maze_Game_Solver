@@ -1,7 +1,0 @@
-numpy
-matplotlib
-flask
-flask-cors
-flask-ngrok
-tqdm
-gunicorn

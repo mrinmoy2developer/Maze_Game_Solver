@@ -19,9 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load saved settings first
   loadSettings();
-
   // Then fetch dynamic options
-  fetchBackendAndAlgorithms();
+   fetchAlgos(backendSelect.dataset.selected,backendUrlInput.value);
 
   runBtn.onclick = () => {
     const skip = localStorage.getItem("skipSolverConfirm");
@@ -49,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   randomSeedInput.onchange = saveSettings;
   algorithmSelect.onchange = saveSettings;
   backendSelect.onchange = () => {
+   fetchAlgos(backendSelect.value,backendUrlInput.value);
     saveSettings();
     updateCustomBackendVisibility();
   };
@@ -57,8 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadSettings() {
     maxIterationsInput.value = localStorage.getItem("solverMaxIterations") || 1000;
     randomSeedInput.value = localStorage.getItem("solverRandomSeed") || 42;
-    algorithmSelect.dataset.selected = localStorage.getItem("solverAlgorithm");
-    backendSelect.dataset.selected = localStorage.getItem("solverBackend");
+    algorithmSelect.value=algorithmSelect.dataset.selected = localStorage.getItem("solverAlgorithm");
+    backendSelect.value=backendSelect.dataset.selected = localStorage.getItem("solverBackend");
     backendUrlInput.value = localStorage.getItem("solverbackendUrl") || "";
     updateCustomBackendVisibility();
   }
@@ -76,9 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getSettings() {
-    if(backendSelect.value!='custom')
-        // backendUrlInput.value='https://maze-game-solver.onrender.com';
-        backendUrlInput.value='http://127.0.0.1:5000';
     return {
       maxIterations: parseInt(maxIterationsInput.value),
       randomSeed: parseInt(randomSeedInput.value),
@@ -93,15 +90,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getGameMode(url) {
-    const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
+    const modes=['challenge','puzzle','arena','academy','daily'];
     const parts = url.split('/');
-    if (parts.length < 5) return -1;
-    if (parts[3] === 'challenge') {
-      if (isNumeric(parts[4])) return 'challenge';
-      else if (parts[4] === 'daily') return 'daily';
-    } else if (modes.includes(parts[3])) return parts[3];
+    if(parts[3]==='challenge'){
+        if(isNumeric(parts[4]))return 'challenge';
+        else if(parts[4]==='daily')return 'daily';
+    }
+    else if(modes.includes(parts[3]))return parts[3];
     return -1;
-  }
+}
 
   function triggerSolver() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -147,7 +144,6 @@ document.addEventListener("DOMContentLoaded", () => {
       logs.textContent += message.text + "\n";
       logs.scrollTop = logs.scrollHeight;
     }
-
     if (message.type === "SOLVER_COMPLETE") {
       loader.style.display = "none";
     }
@@ -155,19 +151,19 @@ document.addEventListener("DOMContentLoaded", () => {
 function logToPopup(msg) {
   chrome.runtime.sendMessage({ type: "MAZE_SOLVER_LOG", text: msg });
 }
-  async function fetchBackendAndAlgorithms() {
-    const settings = getSettings();
-    const backendUrl = settings.backendUrl; // Replace with a fallback or default
+  async function fetchAlgos(backend,backendUrl) {
+    if(backend!=="custom")
+        backendUrl='https://maze-game-solver.onrender.com';
+        // backendUrlInput.value='http://127.0.0.1:5000';
+
     try {
+        logToPopup("Fetching list of available algos...");
       // Show loading indicators
       algorithmSelect.innerHTML = `<option disabled selected>Loading...</option>`;
-      backendSelect.innerHTML = `<option disabled selected>Loading...</option>`;
       const response = await fetch(`${backendUrl}/available`);
       if (!response.ok) throw new Error("Backend fetch failed");
       const data = await response.json();
-
-      const algorithms = data.algorithms || ["optimal", "greedy", "genetic", "simulated"];
-      const backends = data.backends || ['python', 'custom'];
+      const algorithms = data.algorithms || ["default","none"];
       algorithmSelect.innerHTML = "";
       algorithms.forEach(alg => {
         const opt = document.createElement("option");
@@ -175,35 +171,17 @@ function logToPopup(msg) {
         opt.textContent = alg;
         algorithmSelect.appendChild(opt);
       });
-
-      backendSelect.innerHTML = "";
-      backends.forEach(be => {
-        const opt = document.createElement("option");
-        opt.value = be;
-        opt.textContent = be;
-        backendSelect.appendChild(opt);
-      });
       // Restore selected if available
-      if (algorithmSelect.dataset.selected) {
+      if (algorithms.includes(algorithmSelect.dataset.selected)) {
         algorithmSelect.value = algorithmSelect.dataset.selected;
-      }
-      if (backendSelect.dataset.selected) {
-        backendSelect.value = backendSelect.dataset.selected;
-        updateCustomBackendVisibility();
       }
     } catch (err) {
       logs.textContent += `⚠️ Failed to fetch options from backend. Using defaults.\n`;
 
       // Populate with default options
       algorithmSelect.innerHTML = `<option value="optimal">Optimal</option><option value="greedy">Greedy</option>`;
-      backendSelect.innerHTML = `<option value="python">Python</option><option value="custom">Custom URL</option>`;
-
       if (algorithmSelect.dataset.selected) {
         algorithmSelect.value = algorithmSelect.dataset.selected;
-      }
-      if (backendSelect.dataset.selected) {
-        backendSelect.value = backendSelect.dataset.selected;
-        updateCustomBackendVisibility();
       }
     }
   }
