@@ -1,0 +1,127 @@
+body {
+      background-image: url('./bkg_pic.jpg');
+      background-size: 150px 150px;
+      background-position: center;
+      background-repeat: repeat;
+      font-family: Arial; 
+      margin: 10px;
+      height: 400px; 
+      width: 320px; 
+    }
+    /* #loader { display: none; margin-top: 10px; } */
+    #loader {
+      display: none;
+      /* margin-top: 10px; */
+      font-weight: bold;
+      color: #6f00ff;
+    }
+    #loader::after {  
+      content: "";
+      display: inline-block;
+      margin-left: 20px;
+      width:18px;
+      height: 18px;
+      border: 3px solid #6f00ff;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      align-items: "centre";
+    }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+    #confirmModal {
+      display: none;
+      position: fixed;
+      top: 20%;
+      left: 10%;
+      width: 80%;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 20px;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    #confirmModal p { margin-bottom: 10px; }
+    #confirmModal button { margin-right: 10px; }
+    #logs {
+      height: 140px;
+      overflow-y: auto;
+      border: 1px solid rgb(114, 120, 114);
+      padding: 5px;
+      margin-top: 10px;
+      font-size: 12px;
+      background: #000;
+      color: #39ff14;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 3px #39ff14;
+    }
+    #runBtn {
+      background: linear-gradient(135deg, #00ff99, #6f00ff);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;  
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 255, 150, 0.3);
+      transition: all 0.2s ease-in-out;
+      width: 70%;
+      margin-left: 4%;
+    }
+    #runBtn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 12px rgba(0, 255, 150, 0.5);
+    }
+    #heading{
+      text-align: center;
+      font-size: 36px;
+      font-weight: bold;
+      color: #3525e1;
+      margin-bottom: 10px;
+      margin-top: 10px;
+      padding-bottom: 2px;
+      font-family: 'Comic Sans', monospace;
+    }
+    .settings-container {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 3px solid #3525e1;
+      overflow-y: auto;
+      max-height: 120px;
+    }
+    .setting-group {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .setting-group label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+      min-width: 80px;
+    }
+    .setting-group input, .setting-group select {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 12px;
+      width: 80px;
+    }
+    .setting-group select {
+      width: 90px;
+    }
+    .settings-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #3525e1;
+      margin-bottom: 8px;
+      text-align: center;
+    }
