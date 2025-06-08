@@ -9,23 +9,6 @@
   
   <div class="settings-container">
     <div class="settings-title">Solver Settings</div>
-    
-    <div class="setting-group">
-      <label for="maxIterations">Max Iter:</label>
-      <input type="number" id="maxIterations" value="10000" min="1000" max="50000" step="1000">
-    </div>
-    
-    <div class="setting-group">
-      <label for="randomSeed">Seed:</label>
-      <input type="number" id="randomSeed" value="42" min="1" max="9999">
-    </div>
-    
-    <div class="setting-group">
-      <label for="algorithm">Algorithm:</label>
-      <select id="algorithm" style="width: 45%;">
-        <option>Loading...</option>
-      </select>
-    </div>
     <div class="setting-group">
       <label for="backendSelect">Backend:</label>
       <select id="backendSelect" style="width: 45%;">
@@ -37,6 +20,16 @@
     <div class="setting-group" id="customBackendGroup" style="display: none;">
       <label for="customBackendUrl">URL:</label>
       <input type="text" id="backendUrl" style="width: 60%;" placeholder="https://example.com/api">
+    </div>
+    <div class="setting-group">
+      <label for="algorithm">Algorithm:</label>
+      <select id="algorithm" style="width: 45%;">
+        <option>Loading...</option>
+      </select>
+    </div>
+    <!-- Dynamic parameters container -->
+    <div id="dynamicParams" class="dynamic-params-container">
+      <!-- Algorithm-specific parameters will be inserted here -->
     </div>
   </div>
 
