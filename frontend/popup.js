@@ -38,6 +38,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Advanced section toggle functionality
     advancedToggle.addEventListener("change", () => {
+      if (getGameMode() === -1) {
+        advancedToggle.checked=false;
+        logToPopup("❌ Invalid URL! Solver can only run on valid maze game tabs!", "error");
+        return;
+      }
       if (advancedToggle.checked) {
         advancedContent.classList.add("expanded");
         localStorage.setItem("advancedSectionExpanded", "true");
@@ -449,15 +454,17 @@ document.addEventListener("DOMContentLoaded", () => {
     return /^\d+$/.test(str);
   }
 
-  function getGameMode(url) {
-    const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
-    const parts = url.split('/');
-    if (parts[3] === 'challenge') {
-      if (isNumeric(parts[4])) return 'challenge';
-      else if (parts[4] === 'daily') return 'daily';
-    } else if (modes.includes(parts[3])) return parts[3];
-    return -1;
+  function getGameMode(url=null) {
+  if(url===null)url = window.location.href;
+  const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
+  const parts = url.split('/');
+  if (parts[3] === 'challenge') {
+    if (isNumeric(parts[4])) return 'challenge';
+    else if (parts[4] === 'daily') return 'daily';
   }
+  else if (modes.includes(parts[3])) return parts[3];
+  return -1;
+}
 
   function triggerSolver() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -523,8 +530,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function logToPopup(text, level = "info") {
-    chrome.runtime.sendMessage({ type: "MAZE_SOLVER_LOG", text, level });
-  }
+  // Instead of sending a message, directly add to logs
+  const logLine = document.createElement("div");
+  logLine.textContent = text;
+  logLine.classList.add(`log-${level}`);
+  logs.appendChild(logLine);
+  logs.scrollTop = logs.scrollHeight;
+}
 
   async function fetchAlgos(backend, backendUrl) {
     let targetUrl = backendUrl;

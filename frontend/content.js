@@ -250,7 +250,7 @@ function argMax(arr, fn) {
     fn(current) > fn(array[maxIdx]) ? idx : maxIdx, 0
   );
 }
-async function drawBestPlayer(){  //temporary testing function!!!
+async function drawBestPlayer(){ 
     const url = window.location.href,mode=getGameMode(url);
     // const url = "https://maze.game/challenge/daily/1090",mode=getGameMode(url);
     if(!['daily','challenge'].includes(mode)){
