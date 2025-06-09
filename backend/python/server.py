@@ -21,7 +21,7 @@ ALGORITHM_CONFIGS = {
                 "type": "number",
                 "default": 10000,
                 "min": 1000,
-                "max": 50000,
+                "max": 150000,
                 "step": 1000,
                 "label": "Max Iterations",
                 "description": "Maximum search iterations"

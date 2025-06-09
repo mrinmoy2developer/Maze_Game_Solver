@@ -6,7 +6,8 @@ function mapValue(x, a, b, c, d) {
   return c + ((x - a) * (d - c)) / (b - a);
 }
 
-function getGameMode(url) {
+function getGameMode(url=null) {
+  if(url===null)url = window.location.href;
   const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
   const parts = url.split('/');
   if (parts[3] === 'challenge') {
@@ -23,14 +24,20 @@ function clickReset() {
   if (rstButton) rstButton.click();
 }
 
-function getCanvasCoordinates(i, j, n = 18, m = 16) {
+function getCanvasCoordinates(i, j, n = 18, m = 16,ofTower=true) {
   const canvas = document.querySelector("canvas");
   if (!canvas) return null;
-  const N = n - 1, M = m - 1;
+  var N = n - 1, M = m - 1,x,y;
   const rect = canvas.getBoundingClientRect();
   const tile = rect.width / (m + 1);
-  const x = mapValue(j, 0, M - 1, rect.left + tile * 1.5, rect.right - tile * 1.5);
-  const y = mapValue(i, 0, N - 1, rect.top + tile * 2, rect.bottom - tile * 1.5);
+  if(ofTower){
+    x = mapValue(j, 0, M - 1, rect.left + tile * 1.5, rect.right - tile * 1.5);
+    y = mapValue(i, 0, N - 1, rect.top + tile * 2, rect.bottom - tile * 1.5);
+  }
+  else{
+    x = mapValue(j, 0, m-1, rect.left + tile, rect.right - tile);
+    y = mapValue(i, 0, n-1, rect.top + tile * 1.5, rect.bottom - tile);
+  }
   return { canvas, x, y };
 }
 
@@ -71,7 +78,7 @@ function debugMarker(x, y, left) {
   setTimeout(() => marker.remove(), 500);
 }
 function autoClick(i, j, n = 18, m = 16, dbg = false, left = true) {
-  const pos = getCanvasCoordinates(i, j, n, m);
+  const pos = getCanvasCoordinates(i, j, n, m,true);
   if (!pos) return;
   const { canvas, x, y } = pos;
   const events = createClickEvents(x, y, left);
@@ -100,22 +107,26 @@ async function getbURL(url, mode) {
   else if (mode === 'puzzle') return `/b/puzzle/${parts[4]}`;
   else if (mode === 'arena') return `/b/arena/next`;
   else if (mode === 'academy') return `/b/academy/round/${parts[4].toUpperCase()}/${parts[5].toUpperCase()}/${parts[6]}`;
-  else {
+  else if(mode === 'daily'){
     const { parameters: { id } } = await fetchJson(`/b/challenge/periodical/${parts[5]}`);
     return `/b/challenge/${id}/next`;
   }
 }
 
-async function fetchGameState(url, mode) {
+async function fetchGameState(url=null, mode=null) {
+  if(url===null)url = window.location.href;
+  if(mode===null)mode=getGameMode(url);
   const bURL = await getbURL(url, mode);
-  if (['challenge', 'arena'].includes(mode)) {
+  if (['challenge','arena','daily'].includes(mode)) {
     const { board, claps, towers } = await fetchJson(bURL);
     return { board, claps, towers };
-  } else if (mode === 'daily') {
-    const { rounds } = await fetchJson(bURL);
-    const maxKey = Math.max(...Object.keys(rounds).map(Number));
-    return rounds[maxKey];
-  } else {
+  } 
+  // else if (mode === 'daily') {
+  //   const { rounds } = await fetchJson(bURL);
+  //   const maxKey = Math.max(...Object.keys(rounds).map(Number));
+  //   return rounds[maxKey];
+  // } 
+  else {
     const { round: { board, claps, towers } } = await fetchJson(bURL);
     return { board, claps, towers };
   }
@@ -146,7 +157,7 @@ async function sendToBackend(gameData, settings) {
   return await response.json();
 }
 
-async function simulateClicks(normal_positions, frozen_positions, n, m) {
+async function drawSolution(normal_positions, frozen_positions, n, m) {
   logToPopup("Resetting board...", "warning");
   clickReset();
   await new Promise(r => setTimeout(r, 100));
@@ -186,7 +197,7 @@ async function extractAndExecute(url, gameMode, settings) {
     }
 
     logToPopup(`Received ${normal_positions.length + frozen_positions.length} moves. Simulating...`, "info");
-    await simulateClicks(normal_positions, frozen_positions, n, m);
+    await drawSolution(normal_positions, frozen_positions, n, m);
 
     logToPopup("✅ Simulation complete.", "success");
     chrome.runtime.sendMessage({ type: "SOLVER_COMPLETE" });
@@ -197,12 +208,77 @@ async function extractAndExecute(url, gameMode, settings) {
     chrome.runtime.sendMessage({ type: "SOLVER_COMPLETE" });
   }
 }
+async function drawIndices(ofTower=true,visible=true) {
+  const {board:{height:n,width:m}} = await fetchGameState();
+  const canvas = document.querySelector("canvas");
+  if (!canvas) return;
+  // Ensure parent is positioned correctly
+  const parent = canvas.parentElement,rect=canvas.getBoundingClientRect();
+  parent.style.position = "relative";
+
+  // Remove previous labels if any
+  Array.from(parent.querySelectorAll(`.${ofTower?'tower':'square'}-index-label`)).forEach(el => el.remove());
+  if(visible)
+    for (let i = 0; i < (ofTower?n-1:n); i++) {
+      for (let j = 0; j <(ofTower?m-1:m); j++) {
+        const {x,y}=getCanvasCoordinates(i,j,n,m,ofTower);
+        const label = document.createElement("div");
+        label.textContent = `(${i},${j})`;
+        label.className = `${ofTower?'tower':'square'}-index-label`;
+        label.style.position = "absolute";
+        label.style.left = `${x - rect.left - 14}px`;
+        label.style.top = `${y - rect.top - 9}px`;
+        label.style.fontSize = "10px";
+        label.style.color = ofTower?"black":"white";
+        label.style.padding = "1px 2px";
+        label.style.borderRadius = "3px";
+        label.style.pointerEvents = "none";
+        label.style.zIndex = "9999";
+        parent.appendChild(label);
+      }
+    }
+}
+function changeSolRep(solution){
+  const {layout:{towers},path}=solution,normal_positions=[],frozen_positions=[];
+  towers.forEach(({coord:{x:j,y:i},static,clap})=>{
+    if(clap)frozen_positions.push([i,j]); else normal_positions.push([i,j]);
+  });
+  return {normal_positions,frozen_positions,path};
+}
+function argMax(arr, fn) {
+  return arr.reduce((maxIdx, current, idx, array) =>
+    fn(current) > fn(array[maxIdx]) ? idx : maxIdx, 0
+  );
+}
+async function drawBestPlayer(){  //temporary testing function!!!
+    const url = window.location.href,mode=getGameMode(url);
+    // const url = "https://maze.game/challenge/daily/1090",mode=getGameMode(url);
+    if(!['daily','challenge'].includes(mode)){
+      logToPopup('❌ Error!This only works for daily and challenge modes.','error');
+      return;
+    }
+    const {board:{height:n,width:m}} = await fetchGameState(url,mode);
+    const parts=url.split('/');
+    var id,round;
+    if(mode === 'daily')({parameters:{id},progress:round}=await fetchJson(`/b/challenge/periodical/${parts[5]}`));
+    else if(mode==='challenge'){
+      const {rounds} = await fetchJson(`/b/challenge/${parts[4]}`);
+      round=rounds.length;
+      id=parts[4];
+    }
+    const bURL = `/b/challenge/${id}/${round}`;
+    logToPopup(`Fetching all available solutions`,'info');
+    const solutions = await fetchJson(bURL);
+    const bestPlayer=argMax(solutions,({solution:{path:{result}}})=>result);
+    const {normal_positions,frozen_positions}=changeSolRep(solutions[bestPlayer].solution);
+    logToPopup(`Found best having ${normal_positions.length} normal tiles and ${frozen_positions.length} frozen tiles scoring ${solutions[bestPlayer].solution.path.result}.`);
+    drawSolution(normal_positions,frozen_positions,n,m);
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "RUN_SOLVER") {
     const url = window.location.href;
     const gameMode = getGameMode(url);
-    logToPopup(`!!!!${JSON.stringify(message.settings)}!!! `);
     if (gameMode != -1) {
       logToPopup(`Found current game mode: ${gameMode}`, "info");
       const settings = {
@@ -227,4 +303,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ status: "error", message: "Invalid URL" });
     }
   }
+  if(message.type==="TOGGLE_INDEX_OVERLAY"){
+    try{
+      drawIndices(message.ofTower,message.visible);
+      sendResponse({status:"done"});
+    }
+    catch(error){
+      sendResponse({status:"failed",issue:`Error:${error.message}`});
+    }
+  }
+  if(message.type==="SHOW_BEST_PLAYER_SOLUTION"){
+    try{
+      drawBestPlayer();
+      sendResponse({status:"done"});
+    }
+    catch(error){
+      sendResponse({status:"failed",issue:`Error:${error.message}`});
+    }
+  }
 });
+
+

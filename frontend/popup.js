@@ -14,17 +14,115 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmYes = document.getElementById("confirmYes");
   const confirmNo = document.getElementById("confirmNo");
 
+  // Advanced section elements
+  const advancedToggle = document.getElementById("advancedToggle");
+  const advancedSection = document.getElementById("advancedContent");
+  const towerIdxToggle = document.getElementById("towerIndexToggle");
+  const sqIdxToggle = document.getElementById("sqIndexToggle");
+  const bestPlayerBtn = document.getElementById("bestPlayerBtn");
+
   let algorithmConfigs = {};
   let currentParams = {};
+  let indexOverlayVisible = false;
 
   // Initialize the extension
   initializeExtension();
 
   async function initializeExtension() {
     loadBasicSettings();
+    // loadAdvancedSettings();
     await fetchAlgos(backendSelect.value, backendUrlInput.value);
     loadParametersIfMatching();
     updateDynamicParams();
+  }
+
+  // Advanced section toggle functionality
+    advancedToggle.addEventListener("change", () => {
+      if (advancedToggle.checked) {
+        advancedContent.classList.add("expanded");
+        localStorage.setItem("advancedSectionExpanded", "true");
+        logToPopup("🔧 Advanced tools expanded", "info");
+      } else {
+        advancedContent.classList.remove("expanded");
+        localStorage.setItem("advancedSectionExpanded", "false");
+        logToPopup("🔧 Advanced tools collapsed", "info");
+      }
+    });
+    
+    
+  // Index overlay toggle functionality
+  towerIdxToggle.addEventListener("change", () => {
+      const isChecked = towerIdxToggle.checked;
+    indexOverlayVisible = isChecked;
+    // Save index overlay state
+    localStorage.setItem("indexOverlayVisible", isChecked.toString());
+    // Send message to content script to toggle index overlay
+    chrome.runtime.sendMessage({
+        type: "TOGGLE_INDEX_OVERLAY",
+        visible: isChecked,
+        ofTower:true
+        }, (response) => {
+          if (response){
+            if(response.status === "done") 
+              logToPopup(isChecked ? "✅ Tower indices shown" : "✅ Tower indices hidden", "success");
+            else if(response&&response.status==="failed")
+              logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
+            else logToPopup('gache but kono sara nei T_T');
+          }
+          else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
+        }
+      );
+    });
+    sqIdxToggle.addEventListener("change", () => {
+      const isChecked = sqIdxToggle.checked;
+    indexOverlayVisible = isChecked;
+    // Save index overlay state
+    localStorage.setItem("indexOverlayVisible", isChecked.toString());
+    // Send message to content script to toggle index overlay
+    chrome.runtime.sendMessage({
+        type: "TOGGLE_INDEX_OVERLAY",
+        visible: isChecked,
+        ofTower:false
+        }, (response) => {
+          if (response){
+            if(response.status === "done") 
+              logToPopup(isChecked ? "✅ Square indices shown" : "✅ Square indices hidden", "success");
+            else if(response&&response.status==="failed")
+              logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
+            else logToPopup('gache but kono sara nei T_T');
+          }
+          else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
+        }
+      );
+    });
+
+  // Best player solution button functionality
+  bestPlayerBtn.onclick = () => {
+    chrome.runtime.sendMessage({
+          type: "SHOW_BEST_PLAYER_SOLUTION"
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            logToPopup("⚠️ Could not show best player solution - make sure you're on a valid maze game page", "warning");
+          } else {
+            logToPopup("🏆 Showing best player solution", "info");
+          }
+        });
+  };
+
+  function loadAdvancedSettings() {
+    // Load advanced section visibility
+    const advancedVisible = localStorage.getItem("advancedSectionVisible");
+    if (advancedVisible === "true") {
+      advancedToggle.checked = true;
+      advancedSection.style.display = "block";
+    }
+
+    // Load index overlay state
+    const indexVisible = localStorage.getItem("indexOverlayVisible");
+    if (indexVisible === "true") {
+      indexToggle.checked = true;
+      indexOverlayVisible = true;
+    }
   }
 
   runBtn.onclick = () => {
@@ -436,7 +534,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       logToPopup("🔍 Fetching available algorithms and parameters...", "warning");
-
       algorithmSelect.innerHTML = `<option disabled selected>Loading...</option>`;
       dynamicParamsContainer.innerHTML = "";
 
@@ -464,9 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         algorithmSelect.value = algorithms[0];
         algorithmSelect.dataset.selected = algorithms[0];
       }
-
       logToPopup(`✅ Loaded ${algorithms.length} algorithms from backend`, "success");
-
     } catch (err) {
       logToPopup("⚠️ Failed to fetch options from backend. Using defaults.", "error");
       console.error("Backend fetch error:", err);
@@ -488,7 +583,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       };
-
       const savedAlgorithm = algorithmSelect.dataset.selected;
       if (savedAlgorithm && (savedAlgorithm === "optimal" || savedAlgorithm === "greedy")) {
         algorithmSelect.value = savedAlgorithm;

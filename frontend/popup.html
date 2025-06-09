@@ -33,11 +33,51 @@
     </div>
   </div>
 
+  <!-- Advanced Section -->
+  <div class="advanced-section">
+    <div class="advanced-header">
+      <span class="advanced-title">Advanced Tools</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="advancedToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+    
+    <div class="advanced-content" id="advancedContent">
+      <div class="advanced-tools">
+        <div class="tool-group">
+          <div class="toggle-label-group">
+            <span class="advanced-title">Tower:</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="towerIndexToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-label-group">
+            <span class="advanced-title">Square:</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="sqIndexToggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <small class="tool-description">Show/hide coordinate overlays</small>
+        </div>
+        
+        <div class="tool-group">
+          <button id="bestPlayerBtn" class="tool-btn">
+            <span class="btn-icon">🏆</span>
+            <span class="btn-text">Best Player Solution</span>
+          </button>
+          <small class="tool-description">Draws the best player's solution (only works in challenge and daily mode!)</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div style="display: flex; align-items: center; gap: 10px;">
     <button id="runBtn">Run Solver</button>
     <div id="loader"></div>
   </div>
-  
   <div id="logs"></div>
 
   <!-- Confirmation Modal -->

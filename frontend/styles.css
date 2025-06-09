@@ -77,6 +77,34 @@ body {
 
 .dynamic-params-container .setting-group {
   position: relative;
+  margin-bottom: 6px;
+}
+
+/* Make dynamic parameter labels narrower to give more space to inputs */
+.dynamic-params-container .setting-group label {
+  flex: 0 0 65px;
+  font-size: 11px;
+}
+
+/* Make dynamic parameter inputs moderately wider */
+.dynamic-params-container .setting-group input,
+.dynamic-params-container .setting-group select {
+  flex: 1;
+  min-width: 90px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+/* Special styling for number inputs in dynamic params */
+.dynamic-params-container input[type="number"] {
+  min-width: 70px;
+  width: 70px;
+}
+
+/* Special styling for select inputs in dynamic params */
+.dynamic-params-container select {
+  min-width: 80px;
+  width: 80px;
 }
 
 .range-value {
@@ -94,17 +122,19 @@ body {
 .param-description {
   position: flex;
   top: 100%;
-  left: 80px;
+  left: 65px; /* Adjusted for narrower labels */
   font-size: 9px;
   color: #888;
   font-style: italic;
-  margin-top: 2px;
-  padding:5px ;
+  margin-top: 1px;
+  padding: 3px;
+  width: 100%;
 }
 
 input[type="range"] {
   flex: 1;
   margin: 0 8px;
+  min-width: 80px;
 }
 
 input[type="range"]::-webkit-slider-track {
@@ -136,6 +166,167 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 50%;
   cursor: pointer;
   border: none;
+}
+
+/* Advanced Section Styling */
+.advanced-section {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.advanced-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(245, 245, 245, 0.8);
+  border-bottom: 1px solid #e0e0e0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.advanced-title {
+  font-weight: 600;
+  color: #555;
+  font-size: 12px;
+}
+
+/* Toggle Switch Styling */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #4285f4;
+}
+
+input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+/* Advanced Content Styling */
+.advanced-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.advanced-content.expanded {
+  max-height: 200px;
+  padding: 12px;
+}
+
+.advanced-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-group {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tool-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+.tool-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.btn-text {
+  flex: 1;
+}
+
+.tool-description {
+  font-size: 9px;
+  color: #888;
+  font-style: italic;
+  margin-left: 4px;
+  line-height: 1.3;
+}
+.toggle-label-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-right:10px;
+  flex: 1;
+  gap: 5px;
+}
+/* Special styling for toggle indices button when active */
+.tool-btn.active {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.tool-btn.active:hover {
+  background: linear-gradient(135deg, #218838 0%, #1ba085 100%);
 }
 
 button {
@@ -247,7 +438,6 @@ button:disabled {
 #confirmNo:hover {
   background: #5a6268;
 }
-
 /* Scrollbar styling for logs */
 #logs::-webkit-scrollbar {
   width: 6px;
@@ -272,16 +462,21 @@ button:disabled {
   body {
     width: 280px;
   }
-  
   .setting-group label {
     flex: 0 0 70px;
     font-size: 10px;
   }
-  
+  .dynamic-params-container .setting-group label {
+    flex: 0 0 55px;
+  }
   .param-description {
-    left: 70px;
+    left: 55px;
+  }
+  .advanced-content.expanded {
+    max-height: 180px;
   }
 }
+
 /* Log message colors */
 .log-success {
   color: #38a169; /* green */

@@ -1,62 +1,70 @@
-# R Maze Solver - Utils Functions
 # Required packages
 library(jsonlite)
 library(Matrix)
 library(igraph)
 
 # Extract game state from raw JSON data
+library(jsonlite)
+
+# Load JSON as pure nested list
 extract_state <- function(raw) {
   n <- raw$board$height
   m <- raw$board$width
   frozen <- list()
   board <- matrix(0, nrow = n, ncol = m)
   
-  # Process static towers
-  if (!is.null(raw$board$staticTowers)) {
-    for (i in seq_along(raw$board$staticTowers)) {
-      tower <- raw$board$staticTowers[[i]]
-      x <- tower$coord$x + 1  # R uses 1-based indexing
-      y <- tower$coord$y + 1
+  for (t in raw$board$staticTowers) {
+    if (!is.null(t$coord) && !is.null(t$coord$x) && !is.null(t$coord$y)) {
+      x <- t$coord$x
+      y <- t$coord$y
+      row_idx <- (y + 1):(y + 2)
+      col_idx <- (x + 1):(x + 2)
       
-      if (tower$clap) {
-        board[y:(y+1), x:(x+1)] <- 2
-        frozen <- append(frozen, list(c(y + 0.5, x + 0.5)))
+      if (!is.null(t$clap) && t$clap) {
+        board[row_idx, col_idx] <- 2
+        frozen[[length(frozen) + 1]] <- c(y + 0.5, x + 0.5)
       } else {
-        board[y:(y+1), x:(x+1)] <- 1
+        board[row_idx, col_idx] <- 1
       }
     }
   }
   
-  # Helper function for special areas
   special <- function(area, start = FALSE) {
     if (length(area) == 2) {
-      xs <- sapply(area, function(coord) coord$x)
-      ys <- sapply(area, function(coord) coord$y)
+      xs <- sapply(area, function(i) i$x)
+      ys <- sapply(area, function(i) i$y)
       
       if (-1 %in% xs || m %in% xs) {
-        col_idx <- max(1, min(m, xs[1] + 1))
-        board[min(ys + 1):max(ys + 1), col_idx] <<- ifelse(start, -1, -2)
+        col <- min(m, max(1, xs[1] + 1))
+        row_start <- min(ys) + 1
+        row_end <- max(ys) + 1
+        board[row_start:row_end, col] <<- if (start) -1 else -2
       }
+      
       if (-1 %in% ys || n %in% ys) {
-        row_idx <- max(1, min(n, ys[1] + 1))
-        board[row_idx, min(xs + 1):max(xs + 1)] <<- ifelse(start, -1, -2)
+        row <- min(n, max(1, ys[1] + 1))
+        col_start <- min(xs) + 1
+        col_end <- max(xs) + 1
+        board[row, col_start:col_end] <<- if (start) -1 else -2
       }
     } else {
-      x <- ifelse(min(sapply(area, function(coord) coord$x)) == -1, 1, m)
-      y <- ifelse(min(sapply(area, function(coord) coord$y)) == -1, 1, n)
-      board[y, x] <<- ifelse(start, -1, -2)
+      xs <- sapply(area, function(i) i$x)
+      ys <- sapply(area, function(i) i$y)
+      x <- if (min(xs) == -1) 1 else m
+      y <- if (min(ys) == -1) 1 else n
+      board[y, x] <<- if (start) -1 else -2
     }
   }
   
   special(raw$board$startArea, TRUE)
   special(raw$board$endArea, FALSE)
   
-  list(
+  return(list(
     board = board,
-    towers = raw$towers - raw$claps,
+    towers_remaining = raw$towers - raw$claps,
     claps = raw$claps,
     frozen = frozen
-  )
+  ))
 }
 
 # Extract frozen centers from grid
@@ -424,3 +432,8 @@ find_optimal_tile_placement <- function(grid, k_normal, l_frozen, max_attempts =
     return(NULL)
   }
 }
+
+###########Example Usage:-
+# source("utils.R")
+# data <- fromJSON("data/academy_medium_normal0.json", simplifyVector = FALSE)
+# state=extract_state(data)
