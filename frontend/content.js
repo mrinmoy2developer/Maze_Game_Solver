@@ -2,26 +2,21 @@ function logToPopup(msg, level = "info") {
   chrome.runtime.sendMessage({ type: "INJECTED_SCRIPT_LOG", text: msg, level });
   // console.log(msg);
 }
-// Listen for storage changes
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.overlay) {
     const oldValue = changes.overlay.oldValue;
     const newValue = changes.overlay.newValue;
-    
-    console.log('Overlay changed:', { oldValue, newValue });
-    
-    // Your function to trigger when overlay changes
-    handleOverlayChange(newValue, oldValue);
+    // console.log('Overlay changed:', { oldValue, newValue });
+    ((newValue, oldValue)=>{
+      if(oldValue==='ON'&&newValue==='OFF'){
+        const parent = document.querySelector("canvas").parentElement;
+        Array.from(parent.querySelectorAll(`.tile-marker`)).forEach(el => el.remove());
+      }
+      // console.log('Overlay updated to:', newValue);
+    })(newValue, oldValue);
   }
 });
-function handleOverlayChange(newValue, oldValue){
-  if(oldValue==='ON'&&newValue==='OFF'){
-    const parent = document.querySelector("canvas").parentElement;
-    Array.from(parent.querySelectorAll(`.tile-marker`)).forEach(el => el.remove());
-  }
-  console.log('Overlay updated to:', newValue);
-}
-  // Set a global variable
+
 async function setGlobalVar(key, value) {
   try {
     await chrome.storage.local.set({ [key]: value });
@@ -31,7 +26,6 @@ async function setGlobalVar(key, value) {
   }
 }
 
-// Get a global variable
 async function getGlobalVar(key) {
   try {
     const result = await chrome.storage.local.get([key]);
@@ -193,24 +187,6 @@ async function sendToBackend(gameData, settings) {
   }
   return await response.json();
 }
-
-// async function drawSolution(normal_positions, frozen_positions, n, m) {
-//   logToPopup("Resetting board...", "warning");
-//   clickReset();
-//   await new Promise(r => setTimeout(r, 10));
-
-//   logToPopup(`Placing ${normal_positions.length} normal tiles...`, "info");
-//   for (const [i, j] of normal_positions) {
-//     autoClick(i, j, n, m, true, true);
-//     await new Promise(r => setTimeout(r, 10));
-//   }
-
-//   logToPopup(`Placing ${frozen_positions.length} frozen tiles...`, "info");
-//   for (const [i, j] of frozen_positions) {
-//     autoClick(i, j, n, m, true, false);
-//     await new Promise(r => setTimeout(r, 10));
-//   }
-// }
 async function drawSolution(normal_positions, frozen_positions, n, m) {
   const overlay=await getGlobalVar('overlay');
   if(overlay==='OFF'){
@@ -404,12 +380,24 @@ async function fetchPlayerList(){
     // logToPopup(`sURL=${bURL}`);
     solutions = await fetchJson(bURL); //from script scope
     // Format player data for popup
-    const playerData = solutions.map((sol, index) => ({
-      index,
+    // const playerData = solutions.map((sol, index) => ({
+    //   index,
+    //   name: sol.player?.name || `Player ${index + 1}`,
+    //   score: sol.solution?.path?.integerResult || 0,
+    //   moves: (sol.solution.layout?.towers?.length || 0),
+    //   normal_tiles:(sol.solution.layout?.towers || 0),
+    //   frozen_tiles:(sol.solution.layout?.claps || 0)
+    // })).sort((a, b) => b.score - a.score); // Sort by score descending
+    const playerData = solutions.map((sol, index) => {
+    const { normal_positions, frozen_positions } = changeSolRep(sol.solution);
+    return {index,
       name: sol.player?.name || `Player ${index + 1}`,
       score: sol.solution?.path?.integerResult || 0,
-      moves: (sol.solution.layout?.towers?.length || 0)
-    })).sort((a, b) => b.score - a.score); // Sort by score descending
+      moves: sol.solution.layout?.towers?.length || 0,
+      normal_tiles: normal_positions.length,
+      frozen_tiles: frozen_positions.length
+    };
+    }).sort((a, b) => b.score - a.score);
     // logToPopup('returning playerlist from fetchPlayerList() from content.js');
     return {players: playerData};
 }

@@ -34,9 +34,12 @@ function displayPlayerList(players) {
     const playerItem = document.createElement("div");
     playerItem.className = "player-item";
     playerItem.innerHTML = `
-      <div class="player-info">
-        <span class="player-name">${player.name}</span>
-        <span class="player-score">Score: ${player.score}</span>
+      <div class="player-row">
+        <div class="player-info">
+          <span class="player-name">${player.name}</span>
+          <span class="player-score">Score: ${player.score}</span>
+        </div>
+          <span>🟥x${player.normal_tiles}   ❄️x${player.frozen_tiles}</span>
       </div>
       <button class="play-solution-btn" data-index="${player.index}">Play</button>
     `;
