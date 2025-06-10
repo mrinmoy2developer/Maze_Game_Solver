@@ -2,11 +2,49 @@ function logToPopup(msg, level = "info") {
   chrome.runtime.sendMessage({ type: "INJECTED_SCRIPT_LOG", text: msg, level });
   // console.log(msg);
 }
+// Listen for storage changes
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.overlay) {
+    const oldValue = changes.overlay.oldValue;
+    const newValue = changes.overlay.newValue;
+    
+    console.log('Overlay changed:', { oldValue, newValue });
+    
+    // Your function to trigger when overlay changes
+    handleOverlayChange(newValue, oldValue);
+  }
+});
+function handleOverlayChange(newValue, oldValue){
+  if(oldValue==='ON'&&newValue==='OFF'){
+    const parent = document.querySelector("canvas").parentElement;
+    Array.from(parent.querySelectorAll(`.tile-marker`)).forEach(el => el.remove());
+  }
+  console.log('Overlay updated to:', newValue);
+}
+  // Set a global variable
+async function setGlobalVar(key, value) {
+  try {
+    await chrome.storage.local.set({ [key]: value });
+    console.log(`Global var '${key}' set to:`, value);
+  } catch (error) {
+    console.error('Error setting global var:', error);
+  }
+}
+
+// Get a global variable
+async function getGlobalVar(key) {
+  try {
+    const result = await chrome.storage.local.get([key]);
+    return result[key];
+  } catch (error) {
+    console.error('Error getting global var:', error);
+    return null;
+  }
+}
 
 function mapValue(x, a, b, c, d) {
   return c + ((x - a) * (d - c)) / (b - a);
 }
-
 function getGameMode(url=null) {
   if(url===null)url = window.location.href;
   const modes = ['challenge', 'puzzle', 'arena', 'academy', 'daily'];
@@ -56,9 +94,7 @@ function createClickEvents(x, y, left = true) {
 function debugMarker(x, y, left) {
   const canvas = document.querySelector("canvas");
   if (!canvas) return;
-
   const rect = canvas.getBoundingClientRect();
-  
   const marker = document.createElement("div");
   marker.style.position = "absolute";
   marker.style.left = `${x - rect.left - 5}px`; // Position relative to canvas
@@ -158,21 +194,56 @@ async function sendToBackend(gameData, settings) {
   return await response.json();
 }
 
+// async function drawSolution(normal_positions, frozen_positions, n, m) {
+//   logToPopup("Resetting board...", "warning");
+//   clickReset();
+//   await new Promise(r => setTimeout(r, 10));
+
+//   logToPopup(`Placing ${normal_positions.length} normal tiles...`, "info");
+//   for (const [i, j] of normal_positions) {
+//     autoClick(i, j, n, m, true, true);
+//     await new Promise(r => setTimeout(r, 10));
+//   }
+
+//   logToPopup(`Placing ${frozen_positions.length} frozen tiles...`, "info");
+//   for (const [i, j] of frozen_positions) {
+//     autoClick(i, j, n, m, true, false);
+//     await new Promise(r => setTimeout(r, 10));
+//   }
+// }
 async function drawSolution(normal_positions, frozen_positions, n, m) {
-  logToPopup("Resetting board...", "warning");
-  clickReset();
-  await new Promise(r => setTimeout(r, 100));
-
-  logToPopup(`Placing ${normal_positions.length} normal tiles...`, "info");
-  for (const [i, j] of normal_positions) {
-    autoClick(i, j, n, m, true, true);
-    await new Promise(r => setTimeout(r, 100));
+  const overlay=await getGlobalVar('overlay');
+  if(overlay==='OFF'){
+    logToPopup('using autoClick()');
+    logToPopup("Resetting board...", "warning");
+    clickReset();
+    await new Promise(r => setTimeout(r, 10));
+    logToPopup(`Placing ${normal_positions.length} normal tiles...`, "info");
+    for (const [i, j] of normal_positions) {
+      autoClick(i, j, n, m, true, true);
+      await new Promise(r => setTimeout(r, 10));
+    }
+    logToPopup(`Placing ${frozen_positions.length} frozen tiles...`, "info");
+    for (const [i, j] of frozen_positions) {
+      autoClick(i, j, n, m, true, false);
+      await new Promise(r => setTimeout(r, 10));
+    } 
+    logToPopup(`✅ All ${normal_positions.length+frozen_positions.length} tiles clicked`,'success');
+  } 
+  else if(overlay==='ON'){
+    logToPopup('using autoOverlay()');
+    const parent = document.querySelector("canvas").parentElement;
+    Array.from(parent.querySelectorAll(`.tile-marker`)).forEach(el => el.remove());
+    logToPopup("Resetting board...", "warning");
+    logToPopup(`Placing ${normal_positions.length} normal tiles...`, "info");
+    for (const [i, j] of normal_positions) autoOverlay(i, j, n, m, true, true);
+    logToPopup(`Placing ${frozen_positions.length} frozen tiles...`, "info");
+    for (const [i, j] of frozen_positions) autoOverlay(i, j, n, m, true, false);
+    logToPopup(`✅ All ${normal_positions.length+frozen_positions.length} tiles overlayed`,'success');
   }
-
-  logToPopup(`Placing ${frozen_positions.length} frozen tiles...`, "info");
-  for (const [i, j] of frozen_positions) {
-    autoClick(i, j, n, m, true, false);
-    await new Promise(r => setTimeout(r, 100));
+  else{
+    if(!overlay)logToPopup('❌ overlay state is null','error');
+    else logToPopup('❌ overlay state is unknown','error');
   }
 }
 
@@ -238,6 +309,40 @@ async function drawIndices(ofTower=true,visible=true) {
         parent.appendChild(label);
       }
     }
+}
+function autoOverlay(i, j, n = 18, m = 16, dbg = false, left = true) {
+    const pos = getCanvasCoordinates(i, j, n, m,true);
+    if (!pos) return;
+    const { canvas, x, y } = pos;
+    const rect = canvas.getBoundingClientRect(),tile=rect.width/(m+1);
+    const marker = document.createElement("div");
+
+    marker.style.position = "absolute";
+    marker.style.left = `${x - rect.left - tile}px`; // Adjusted for larger image
+    marker.style.top = `${y - rect.top - tile}px`;
+    marker.style.width = `${2*tile}px`;
+    marker.style.height = `${2*tile}px`;
+    marker.style.zIndex = "9999";
+    marker.style.pointerEvents = "none";
+    marker.style.opacity = "0.5";
+    marker.className = `tile-marker`;
+    const img = document.createElement("img");
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "contain";
+    img.style.borderRadius = "5%";
+    img.src = left ? 
+      chrome.runtime.getURL('assets/normal_tile.png') :  // or whatever you name your files
+      chrome.runtime.getURL('assets/frozen_tile.png');
+    img.onerror = function() {
+    marker.style.background = left ? "red" : "blue";
+    marker.style.borderRadius = "10%";
+    img.remove();
+  };
+  marker.appendChild(img);
+  canvas.parentElement.style.position = "relative";
+  canvas.parentElement.appendChild(marker);
+    if (dbg) debugMarker(x, y, left);
 }
 function changeSolRep(solution){
   const {layout:{towers},path}=solution,normal_positions=[],frozen_positions=[];

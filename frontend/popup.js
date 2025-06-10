@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const runBtn = document.getElementById("runBtn");
+  const overlayBtn = document.getElementById("overlayBtn");
   const loader = document.getElementById("loader");
   const logs = document.getElementById("logs");
 
@@ -56,6 +57,26 @@ function displayPlayerList(players) {
     
     playerList.appendChild(playerItem);
   });
+} 
+  // Set a global variable
+async function setGlobalVar(key, value) {
+  try {
+    await chrome.storage.local.set({ [key]: value });
+    console.log(`Global var '${key}' set to:`, value);
+  } catch (error) {
+    console.error('Error setting global var:', error);
+  }
+}
+
+// Get a global variable
+async function getGlobalVar(key) {
+  try {
+    const result = await chrome.storage.local.get([key]);
+    return result[key];
+  } catch (error) {
+    console.error('Error getting global var:', error);
+    return null;
+  }
 }
 
   let algorithmConfigs = {};
@@ -64,6 +85,23 @@ function displayPlayerList(players) {
 
   // Initialize the extension
   initializeExtension();
+  let overlay;
+  (async()=>{
+    overlay=await getGlobalVar('overlay');
+    if(!overlay){
+      overlay='OFF';
+      await setGlobalVar('overlay',overlay);
+    }
+    if(overlay==="ON"){
+      overlayBtn.className='overlay-on';
+      overlayBtn.innerText='Overlay ON';
+    }
+    else{
+      overlayBtn.className='overlay-off';
+      overlayBtn.innerText='Overlay OFF';
+    }
+  })();
+  
 
   async function initializeExtension() {
     loadBasicSettings();
@@ -191,6 +229,22 @@ fetchPlayersBtn.addEventListener('click', () => {
     } else {
       modal.style.display = "block";
     }
+  };
+   overlayBtn.onclick = () => {
+    if (overlay === "ON") {
+      overlay="OFF";
+      setGlobalVar('overlay',overlay);
+      logToPopup("✅ Changed to click mode from overlay mode",'success');
+      overlayBtn.className='overlay-off';
+      overlayBtn.innerText='Overlay OFF';
+    } else if(overlay==="OFF") {
+      overlay="ON";
+      setGlobalVar('overlay',overlay);
+      logToPopup("✅ Changed to overlay mode from click mode",'success');
+      overlayBtn.className="overlay-on";
+      overlayBtn.innerText='Overlay ON';
+    }
+    else logToPopup("❌ Qverlay mode in unknow state!",'error');
   };
 
   confirmYes.onclick = () => {

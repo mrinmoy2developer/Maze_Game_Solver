@@ -349,6 +349,21 @@ button:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
+.overlay-off {
+  background: #de5c3c !important;
+}
+
+.overlay-off:hover {
+  background: #b8472f !important;
+}
+
+.overlay-on {
+  background: #3bcd39 !important;
+}
+
+.overlay-on:hover {
+  background: #269524 !important;
+}
 
 #loader {
   width: 16px;
