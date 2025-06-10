@@ -1,5 +1,6 @@
 function logToPopup(msg, level = "info") {
-  chrome.runtime.sendMessage({ type: "MAZE_SOLVER_LOG", text: msg, level });
+  chrome.runtime.sendMessage({ type: "INJECTED_SCRIPT_LOG", text: msg, level });
+  // console.log(msg);
 }
 
 function mapValue(x, a, b, c, d) {
@@ -250,14 +251,36 @@ function argMax(arr, fn) {
     fn(current) > fn(array[maxIdx]) ? idx : maxIdx, 0
   );
 }
-async function drawBestPlayer(){ 
-    const url = window.location.href,mode=getGameMode(url);
-    // const url = "https://maze.game/challenge/daily/1090",mode=getGameMode(url);
+// async function drawBestPlayer(){ 
+//     const url = window.location.href,mode=getGameMode(url);
+//     // const url = "https://maze.game/challenge/daily/1090",mode=getGameMode(url);
+//     if(!['daily','challenge'].includes(mode)){
+//       logToPopup('❌ Error!This only works for daily and challenge modes.','error');
+//       return;
+//     }
+//     const {board:{height:n,width:m}} = await fetchGameState(url,mode);
+//     const parts=url.split('/');
+//     var id,round;
+//     if(mode === 'daily')({parameters:{id},progress:round}=await fetchJson(`/b/challenge/periodical/${parts[5]}`));
+//     else if(mode==='challenge'){
+//       const {rounds} = await fetchJson(`/b/challenge/${parts[4]}`);
+//       round=rounds.length;
+//       id=parts[4];
+//     }
+//     const bURL = `/b/challenge/${id}/${round}`;
+//     logToPopup(`Fetching all available solutions`,'info');
+//     const solutions = await fetchJson(bURL);
+//     const bestPlayer=argMax(solutions,({solution:{path:{result}}})=>result);
+//     const {normal_positions,frozen_positions}=changeSolRep(solutions[bestPlayer].solution);
+//     logToPopup(`Found best having ${normal_positions.length} normal tiles and ${frozen_positions.length} frozen tiles scoring ${solutions[bestPlayer].solution.path.result}.`);
+//     drawSolution(normal_positions,frozen_positions,n,m);
+// }
+async function getSURL(){
+  const url = window.location.href,mode=getGameMode(url);
     if(!['daily','challenge'].includes(mode)){
-      logToPopup('❌ Error!This only works for daily and challenge modes.','error');
-      return;
+      logToPopup('❌ Error! This only works for daily and challenge modes.','error');
+      return {error: 'Invalid mode'};
     }
-    const {board:{height:n,width:m}} = await fetchGameState(url,mode);
     const parts=url.split('/');
     var id,round;
     if(mode === 'daily')({parameters:{id},progress:round}=await fetchJson(`/b/challenge/periodical/${parts[5]}`));
@@ -266,60 +289,109 @@ async function drawBestPlayer(){
       round=rounds.length;
       id=parts[4];
     }
-    const bURL = `/b/challenge/${id}/${round}`;
+    return `/b/challenge/${id}/${round}`;
+}
+
+let solutions; //declared i n the script scope
+async function fetchPlayerList(){ 
+    const bURL = await getSURL();
     logToPopup(`Fetching all available solutions`,'info');
-    const solutions = await fetchJson(bURL);
-    const bestPlayer=argMax(solutions,({solution:{path:{result}}})=>result);
-    const {normal_positions,frozen_positions}=changeSolRep(solutions[bestPlayer].solution);
-    logToPopup(`Found best having ${normal_positions.length} normal tiles and ${frozen_positions.length} frozen tiles scoring ${solutions[bestPlayer].solution.path.result}.`);
+    // logToPopup(`sURL=${bURL}`);
+    solutions = await fetchJson(bURL); //from script scope
+    // Format player data for popup
+    const playerData = solutions.map((sol, index) => ({
+      index,
+      name: sol.player?.name || `Player ${index + 1}`,
+      score: sol.solution?.path?.integerResult || 0,
+      moves: (sol.solution.layout?.towers?.length || 0)
+    })).sort((a, b) => b.score - a.score); // Sort by score descending
+    // logToPopup('returning playerlist from fetchPlayerList() from content.js');
+    return {players: playerData};
+}
+async function drawBestPlayer(playerIndex = null){ 
+    const {board:{height:n,width:m}} = await fetchGameState();
+    if (!solutions){
+      const bURL =await  getSURL();
+      logToPopup(`Fetching all available solutions`,'info');
+      const solutions = await fetchJson(bURL); //using solution from the script scope instead
+    }
+    logToPopup('Using cashed solution list','success');
+    const targetPlayer = playerIndex !== null ? playerIndex : argMax(solutions,({solution:{path:{result}}})=>result);
+    const {normal_positions,frozen_positions}=changeSolRep(solutions[targetPlayer].solution);
+    const playerName = solutions[targetPlayer].player?.name || `Player ${targetPlayer + 1}`;
+    const score = solutions[targetPlayer].solution.path.integerResult;
+    logToPopup(`Playing ${playerName}'s solution with ${normal_positions.length} normal tiles and ${frozen_positions.length} frozen tiles scoring ${score}.`);
     drawSolution(normal_positions,frozen_positions,n,m);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "RUN_SOLVER") {
-    const url = window.location.href;
-    const gameMode = getGameMode(url);
-    if (gameMode != -1) {
-      logToPopup(`Found current game mode: ${gameMode}`, "info");
-      const settings = {
-        algorithm: 'optimal',
-        backend: 'python',
-        backendUrl: 'https://maze-game-solver.onrender.com',
-        ...message.settings
-      };
+    (async()=>{
+      const url = window.location.href;
+      const gameMode = getGameMode(url);
+      if (gameMode != -1) {
+        logToPopup(`Found current game mode: ${gameMode}`, "info");
+        const settings = {
+          algorithm: 'optimal',
+          backend: 'python',
+          backendUrl: 'https://maze-game-solver.onrender.com',
+          ...message.settings
+        };
 
-      if (!settings.backendUrl || settings.backendUrl.trim() === '' || settings.backend != 'custom')
-        settings.backendUrl = 'https://maze-game-solver.onrender.com';
+        if (!settings.backendUrl || settings.backendUrl.trim() === '' || settings.backend != 'custom')
+          settings.backendUrl = 'https://maze-game-solver.onrender.com';
 
-      logToPopup(`Algorithm: ${settings.algorithm}, Backend: ${settings.backend}`, "info");
-      if (settings.backend === 'custom') {
-        logToPopup(`Using Custom backend ${settings.backendUrl}...`, "info");
+        logToPopup(`Algorithm: ${settings.algorithm}, Backend: ${settings.backend}`, "info");
+        if (settings.backend === 'custom') {
+          logToPopup(`Using Custom backend ${settings.backendUrl}...`, "info");
+        }
+
+        await extractAndExecute(url, gameMode, settings);
+        sendResponse({ status: "started" });
+      } else {
+        logToPopup("❌ Error: Could not extract game mode from URL", "error");
+        sendResponse({ status: "error", message: "Invalid URL" });
       }
-
-      extractAndExecute(url, gameMode, settings);
-      sendResponse({ status: "started" });
-    } else {
-      logToPopup("❌ Error: Could not extract game mode from URL", "error");
-      sendResponse({ status: "error", message: "Invalid URL" });
-    }
+    })();
+    return true;
   }
   if(message.type==="TOGGLE_INDEX_OVERLAY"){
-    try{
-      drawIndices(message.ofTower,message.visible);
-      sendResponse({status:"done"});
-    }
-    catch(error){
-      sendResponse({status:"failed",issue:`Error:${error.message}`});
-    }
+    (async()=>{try{
+        await drawIndices(message.ofTower,message.visible);
+        sendResponse({status:"done"});
+      }
+      catch(error){
+        sendResponse({status:"failed",issue:`Error:${error.message}`});
+      }
+    })();
+    return true;
   }
   if(message.type==="SHOW_BEST_PLAYER_SOLUTION"){
-    try{
-      drawBestPlayer();
-      sendResponse({status:"done"});
-    }
-    catch(error){
-      sendResponse({status:"failed",issue:`Error:${error.message}`});
-    }
+    (async()=>{
+      try{
+        await drawBestPlayer(message.playerIndex || null);
+        sendResponse({status:"done"});
+      }
+      catch(error){
+        sendResponse({status:"failed",issue:`Error:${error.message}`});
+      }
+    })();
+    return true;
+  }
+  if(message.type==="FETCH_PLAYER_LIST"){
+    (async()=>{try{
+        // logToPopup('calling fetchPlayerList() from content.js');
+        const result = await fetchPlayerList();
+        // logToPopup('got result from fetchPlayerList() in content.js. now sending back to background');
+        // logToPopup(`Sending response: ${JSON.stringify(result)}`);
+        sendResponse(result);
+      }
+      catch(error){
+        logToPopup(`Error in fetchPlayerList: ${error.message}`);
+        sendResponse({error: error.message});
+      }
+    })();
+    return true;
   }
 });
 

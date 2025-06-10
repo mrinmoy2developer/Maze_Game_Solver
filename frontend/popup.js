@@ -19,7 +19,44 @@ document.addEventListener("DOMContentLoaded", () => {
   const advancedSection = document.getElementById("advancedContent");
   const towerIdxToggle = document.getElementById("towerIndexToggle");
   const sqIdxToggle = document.getElementById("sqIndexToggle");
-  const bestPlayerBtn = document.getElementById("bestPlayerBtn");
+  // const bestPlayerBtn = document.getElementById("bestPlayerBtn");
+  // Replace the existing bestPlayerBtn line with:
+const fetchPlayersBtn = document.getElementById("fetchPlayersBtn");
+const playerListContainer = document.getElementById("playerListContainer");
+const playerList = document.getElementById("playerList");
+// Add this new function:
+function displayPlayerList(players) {
+  playerList.innerHTML = "";
+  playerListContainer.style.display = "block";
+  
+  players.forEach((player, index) => {
+    const playerItem = document.createElement("div");
+    playerItem.className = "player-item";
+    playerItem.innerHTML = `
+      <div class="player-info">
+        <span class="player-name">${player.name}</span>
+        <span class="player-score">Score: ${player.score}</span>
+      </div>
+      <button class="play-solution-btn" data-index="${player.index}">Play</button>
+    `;
+    
+    const playBtn = playerItem.querySelector(".play-solution-btn");
+    playBtn.onclick = () => {
+      chrome.runtime.sendMessage({
+        type: "SHOW_BEST_PLAYER_SOLUTION",
+        playerIndex: player.index
+      }, (response) => {
+        if (response && response.status === "done") {
+          logToPopup(`🎮 Playing ${player.name}'s solution`, "info");
+        } else {
+          logToPopup("❌ Failed to play solution", "error");
+        }
+      });
+    };
+    
+    playerList.appendChild(playerItem);
+  });
+}
 
   let algorithmConfigs = {};
   let currentParams = {};
@@ -37,8 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Advanced section toggle functionality
-    advancedToggle.addEventListener("change", () => {
-      if (getGameMode() === -1) {
+    advancedToggle.addEventListener("change",() => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      const url = currentTab.url;
+      if (getGameMode(url) === -1) {
         advancedToggle.checked=false;
         logToPopup("❌ Invalid URL! Solver can only run on valid maze game tabs!", "error");
         return;
@@ -53,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
         logToPopup("🔧 Advanced tools collapsed", "info");
       }
     });
-    
+  });
     
   // Index overlay toggle functionality
   towerIdxToggle.addEventListener("change", () => {
@@ -78,8 +118,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       );
     });
-    sqIdxToggle.addEventListener("change", () => {
-      const isChecked = sqIdxToggle.checked;
+
+  sqIdxToggle.addEventListener("change", () => {
+    const isChecked = sqIdxToggle.checked;
     indexOverlayVisible = isChecked;
     // Save index overlay state
     localStorage.setItem("indexOverlayVisible", isChecked.toString());
@@ -99,20 +140,33 @@ document.addEventListener("DOMContentLoaded", () => {
           else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
         }
       );
-    });
+  });
 
-  // Best player solution button functionality
-  bestPlayerBtn.onclick = () => {
-    chrome.runtime.sendMessage({
-          type: "SHOW_BEST_PLAYER_SOLUTION"
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            logToPopup("⚠️ Could not show best player solution - make sure you're on a valid maze game page", "warning");
-          } else {
-            logToPopup("🏆 Showing best player solution", "info");
-          }
-        });
-  };
+fetchPlayersBtn.addEventListener('click', () => {
+  fetchPlayersBtn.disabled = true;
+  fetchPlayersBtn.textContent = "Loading...";
+  // logToPopup('fetch player list button pressed! sending FETCH_PLAYER_LIST request to background.js');
+  chrome.runtime.sendMessage(
+    { type: "FETCH_PLAYER_LIST" },
+    (response) => {
+      // logToPopup(`Raw response received: ${JSON.stringify(response)}`);
+      fetchPlayersBtn.disabled = false;
+      fetchPlayersBtn.innerHTML = '<span class="btn-icon">👥</span><span class="btn-text">Reload Player Solutions</span>';
+      if (chrome.runtime.lastError) {
+        logToPopup(`Chrome runtime error: ${chrome.runtime.lastError.message}`, "error");
+        return;
+      }
+      if (response && response.players) {
+        displayPlayerList(response.players);
+        logToPopup(`✅ Loaded ${response.players.length} player solutions`, "success");
+      } else if (response && response.error) {
+        logToPopup(`❌ Error: ${response.error}`, "error");
+      } else {
+        logToPopup(`❌ Failed to load player solutions - invalid response: ${JSON.stringify(response)}`, "error");
+      }
+    }
+  );
+});
 
   function loadAdvancedSettings() {
     // Load advanced section visibility
@@ -516,7 +570,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "MAZE_SOLVER_LOG") {
+    if (message.type === "BACKGROUND_LOG") {
       const logLine = document.createElement("div");
       logLine.textContent = message.text;
       const level = message.level || "info";
@@ -528,7 +582,9 @@ document.addEventListener("DOMContentLoaded", () => {
       loader.style.display = "none";
     }
   });
-
+  // function logToPopup(text, level = "info") {
+  //     chrome.runtime.sendMessage({ type: "MAZE_SOLVER_LOG", text: text, level: level });
+  //   }
   function logToPopup(text, level = "info") {
   // Instead of sending a message, directly add to logs
   const logLine = document.createElement("div");

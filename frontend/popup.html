@@ -63,12 +63,24 @@
           <small class="tool-description">Show/hide coordinate overlays</small>
         </div>
         
-        <div class="tool-group">
+        <!-- <div class="tool-group">
           <button id="bestPlayerBtn" class="tool-btn">
             <span class="btn-icon">🏆</span>
             <span class="btn-text">Best Player Solution</span>
           </button>
           <small class="tool-description">Draws the best player's solution (only works in challenge and daily mode!)</small>
+        </div> -->
+        <div class="tool-group">
+          <button id="fetchPlayersBtn" class="tool-btn">
+            <span class="btn-icon">👥</span>
+            <span class="btn-text">Load Player Solutions</span>
+          </button>
+          <small class="tool-description">Load all player solutions (challenge/daily mode only)</small>
+        </div>
+
+        <div id="playerListContainer" class="player-list-container" style="display: none;">
+          <div class="player-list-header">Available Solutions:</div>
+          <div id="playerList" class="player-list"></div>
         </div>
       </div>
     </div>
