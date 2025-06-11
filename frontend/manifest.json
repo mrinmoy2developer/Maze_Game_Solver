@@ -8,7 +8,9 @@
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["activeTab", "scripting","storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://maze.game/*",
     "http://127.0.0.1:5000/*",

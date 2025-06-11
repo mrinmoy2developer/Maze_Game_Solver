@@ -1,4 +1,5 @@
-allowedTypes=["SHOW_BEST_PLAYER_SOLUTION","RUN_SOLVER","TOGGLE_INDEX_OVERLAY","FETCH_PLAYER_LIST"];
+// allowedTypes=["SHOW_BEST_PLAYER_SOLUTION","RUN_SOLVER","TOGGLE_INDEX_OVERLAY","FETCH_PLAYER_LIST"];
+allowedTypes=["SHOW_BEST_PLAYER_SOLUTION","RUN_SOLVER","TOGGLE_INDEX_OVERLAY","FETCH_PLAYER_LIST","RESET_CONFIRMATION_PREFERENCE"];
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (allowedTypes.includes(message.type)) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

@@ -51,7 +51,82 @@ function getGameMode(url=null) {
   return -1;
 }
 
-function clickReset() {
+let resetConfirmationShown = false;
+let userResetPreference = null;
+
+// Load user's reset preference on script load
+(async () => {
+  userResetPreference = await getGlobalVar('resetConfirmation');
+})();
+
+function createConfirmModal() {
+  const modal = document.createElement('div');
+  modal.id = 'reset-confirm-modal';
+  modal.innerHTML = `
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; justify-content: center; align-items: center;">
+      <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;">
+        <h3 style="margin: 0 0 15px 0; color: #333;">Reset Board Confirmation</h3>
+        <p style="margin: 0 0 20px 0; color: #666;">This will reset the current board. Are you sure you want to continue?</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="reset-cancel" style="padding: 8px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+          <button id="reset-confirm" style="padding: 8px 16px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer;">Reset</button>
+        </div>
+        <label style="display: flex; align-items: center; margin-top: 15px; font-size: 14px; color: #666;">
+          <input type="checkbox" id="dont-ask-again" style="margin-right: 8px;">
+          Don't ask me again
+        </label>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+async function showResetConfirmation() {
+  return new Promise((resolve) => {
+    const modal = createConfirmModal();
+    
+    modal.querySelector('#reset-confirm').onclick = async () => {
+      const dontAskAgain = modal.querySelector('#dont-ask-again').checked;
+      if (dontAskAgain) {
+        await setGlobalVar('resetConfirmation', 'always');
+        userResetPreference = 'always';
+      }
+      modal.remove();
+      resolve(true);
+    };
+    
+    modal.querySelector('#reset-cancel').onclick = async () => {
+      const dontAskAgain = modal.querySelector('#dont-ask-again').checked;
+      if (dontAskAgain) {
+        await setGlobalVar('resetConfirmation', 'never');
+        userResetPreference = 'never';
+      }
+      modal.remove();
+      resolve(false);
+    };
+  });
+}
+
+// function clickReset() {
+//   const rstButton = Array.from(document.querySelectorAll("button"))
+//     .find(btn => btn.textContent.trim() === "Reset");
+//   if (rstButton) rstButton.click();
+// }
+async function clickReset() {
+  // Check if we need to show confirmation
+  if (!resetConfirmationShown && userResetPreference !== 'always') {
+    if (userResetPreference === 'never') {
+      logToPopup("❌ Sorry can't reset the board as you checked cancel!");
+      return; // User chose never to reset
+    }
+    resetConfirmationShown = true;
+    const confirmed = await showResetConfirmation();
+    if (!confirmed) {
+      return; // User cancelled
+    }
+  }
+  
   const rstButton = Array.from(document.querySelectorAll("button"))
     .find(btn => btn.textContent.trim() === "Reset");
   if (rstButton) rstButton.click();
@@ -147,6 +222,7 @@ async function getbURL(url, mode) {
 async function fetchGameState(url=null, mode=null) {
   if(url===null)url = window.location.href;
   if(mode===null)mode=getGameMode(url);
+  const layout =await JSON.parse(localStorage.cachedLayout);
   const bURL = await getbURL(url, mode);
   if (['challenge','arena','daily'].includes(mode)) {
     const { board, claps, towers } = await fetchJson(bURL);
@@ -159,10 +235,24 @@ async function fetchGameState(url=null, mode=null) {
   // } 
   else {
     const { round: { board, claps, towers } } = await fetchJson(bURL);
-    return { board, claps, towers };
+    return { board, claps, towers ,layout};
   }
 }
-
+// async function getActualScore(gameState) {
+//   const {board,claps,towers,layout}=gameState;
+//   try {
+//     const res = await fetch(url, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(payload),
+//     });
+//     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+//     return await res.json();
+//   } catch (err) {
+//     console.error('POST request failed:', err);
+//     return null;
+//   }
+// }
 async function sendToBackend(gameData, settings) {
   const solver_settings = { algorithm: settings.algorithm };
   Object.keys(settings).forEach(key => {
@@ -181,7 +271,6 @@ async function sendToBackend(gameData, settings) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
@@ -226,12 +315,11 @@ async function drawSolution(normal_positions, frozen_positions, n, m) {
 async function extractAndExecute(url, gameMode, settings) {
   try {
     logToPopup("Fetching game state...", "info");
-    const gameData = await fetchGameState(url, gameMode);
+    const {board,towers,claps} = await fetchGameState(url, gameMode);
 
     logToPopup("Sending game data to backend...", "info");
-    const { board: { height: n, width: m } } = gameData;
-    const sol = await sendToBackend(gameData, settings);
-
+    const { height: n, width: m } = board;
+    const sol = await sendToBackend({board,towers,claps}, settings);
     const { normal_positions, frozen_positions, best_score, time_taken, algorithm_used, parameters_used } = sol;
 
     logToPopup(`✅ Solution found! Algorithm: ${algorithm_used}`, "success");
@@ -380,14 +468,6 @@ async function fetchPlayerList(){
     // logToPopup(`sURL=${bURL}`);
     solutions = await fetchJson(bURL); //from script scope
     // Format player data for popup
-    // const playerData = solutions.map((sol, index) => ({
-    //   index,
-    //   name: sol.player?.name || `Player ${index + 1}`,
-    //   score: sol.solution?.path?.integerResult || 0,
-    //   moves: (sol.solution.layout?.towers?.length || 0),
-    //   normal_tiles:(sol.solution.layout?.towers || 0),
-    //   frozen_tiles:(sol.solution.layout?.claps || 0)
-    // })).sort((a, b) => b.score - a.score); // Sort by score descending
     const playerData = solutions.map((sol, index) => {
     const { normal_positions, frozen_positions } = changeSolRep(sol.solution);
     return {index,
@@ -486,6 +566,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message.type === "RESET_CONFIRMATION_PREFERENCE") {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]) {
+      chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
+        sendResponse(response);
+      });
+    }
+  });
+  return true;
+}
 });
 
 

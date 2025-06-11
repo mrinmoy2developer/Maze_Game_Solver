@@ -10,10 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const backendUrlInput = document.getElementById("backendUrl");
   const dynamicParamsContainer = document.getElementById("dynamicParams");
 
-  const modal = document.getElementById("confirmModal");
-  const skipConfirm = document.getElementById("skipConfirm");
-  const confirmYes = document.getElementById("confirmYes");
-  const confirmNo = document.getElementById("confirmNo");
+  // const modal = document.getElementById("confirmModal");
+  // const skipConfirm = document.getElementById("skipConfirm");
+  // const confirmYes = document.getElementById("confirmYes");
+  // const confirmNo = document.getElementById("confirmNo");
 
   // Advanced section elements
   const advancedToggle = document.getElementById("advancedToggle");
@@ -104,93 +104,102 @@ async function getGlobalVar(key) {
       overlayBtn.innerText='Overlay OFF';
     }
   })();
-  
 
   async function initializeExtension() {
-    loadBasicSettings();
-    // loadAdvancedSettings();
-    await fetchAlgos(backendSelect.value, backendUrlInput.value);
-    loadParametersIfMatching();
-    updateDynamicParams();
-  }
+  loadBasicSettings();
+  await loadAdvancedSettings(); // Make this async
+  await fetchAlgos(backendSelect.value, backendUrlInput.value);
+  loadParametersIfMatching();
+  updateDynamicParams();
+  await loadSavedPlayerList(); // Make this async too
+}
 
   // Advanced section toggle functionality
-    advancedToggle.addEventListener("change",() => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const currentTab = tabs[0];
-      const url = currentTab.url;
-      if (getGameMode(url) === -1) {
-        advancedToggle.checked=false;
-        logToPopup("❌ Invalid URL! Solver can only run on valid maze game tabs!", "error");
-        return;
-      }
-      if (advancedToggle.checked) {
-        advancedContent.classList.add("expanded");
-        localStorage.setItem("advancedSectionExpanded", "true");
-        logToPopup("🔧 Advanced tools expanded", "info");
-      } else {
-        advancedContent.classList.remove("expanded");
-        localStorage.setItem("advancedSectionExpanded", "false");
-        logToPopup("🔧 Advanced tools collapsed", "info");
-      }
-    });
+  advancedToggle.addEventListener("change", async () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    const currentTab = tabs[0];
+    const url = currentTab.url;
+    if (getGameMode(url) === -1) {
+      advancedToggle.checked = false;
+      logToPopup("❌ Invalid URL! Solver can only run on valid maze game tabs!", "error");
+      return;
+    }
+    
+    const pageKey = await getCurrentPageKey();
+    
+    if (advancedToggle.checked) {
+      advancedContent.classList.add("expanded");
+      localStorage.setItem(`${pageKey}_advancedExpanded`, "true");
+      logToPopup("🔧 Advanced tools expanded", "info");
+    } else {
+      advancedContent.classList.remove("expanded");
+      localStorage.setItem(`${pageKey}_advancedExpanded`, "false");
+      logToPopup("🔧 Advanced tools collapsed", "info");
+    }
   });
+});
     
   // Index overlay toggle functionality
-  towerIdxToggle.addEventListener("change", () => {
-      const isChecked = towerIdxToggle.checked;
-    indexOverlayVisible = isChecked;
-    // Save index overlay state
-    localStorage.setItem("indexOverlayVisible", isChecked.toString());
-    // Send message to content script to toggle index overlay
-    chrome.runtime.sendMessage({
-        type: "TOGGLE_INDEX_OVERLAY",
-        visible: isChecked,
-        ofTower:true
-        }, (response) => {
-          if (response){
-            if(response.status === "done") 
-              logToPopup(isChecked ? "✅ Tower indices shown" : "✅ Tower indices hidden", "success");
-            else if(response&&response.status==="failed")
-              logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
-            else logToPopup('gache but kono sara nei T_T');
-          }
-          else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
-        }
-      );
-    });
+towerIdxToggle.addEventListener("change", async () => {
+  const isChecked = towerIdxToggle.checked;
+  const pageKey = await getCurrentPageKey();
+  
+  indexOverlayVisible = isChecked;
+  // Save index overlay state for current page
+  localStorage.setItem(`${pageKey}_towerIndex`, isChecked.toString());
+  
+  // Send message to content script to toggle index overlay
+  chrome.runtime.sendMessage({
+      type: "TOGGLE_INDEX_OVERLAY",
+      visible: isChecked,
+      ofTower: true
+    }, (response) => {
+      if (response) {
+        if (response.status === "done") 
+          logToPopup(isChecked ? "✅ Tower indices shown" : "✅ Tower indices hidden", "success");
+        else if (response && response.status === "failed")
+          logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
+        else logToPopup('gache but kono sara nei T_T');
+      }
+      else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
+    }
+  );
+});
+sqIdxToggle.addEventListener("change", async () => {
+  const isChecked = sqIdxToggle.checked;
+  const pageKey = await getCurrentPageKey();
+  
+  indexOverlayVisible = isChecked;
+  // Save index overlay state for current page
+  localStorage.setItem(`${pageKey}_sqIndex`, isChecked.toString());
+  
+  // Send message to content script to toggle index overlay
+  chrome.runtime.sendMessage({
+      type: "TOGGLE_INDEX_OVERLAY",
+      visible: isChecked,
+      ofTower: false
+    }, (response) => {
+      if (response) {
+        if (response.status === "done") 
+          logToPopup(isChecked ? "✅ Square indices shown" : "✅ Square indices hidden", "success");
+        else if (response && response.status === "failed")
+          logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
+        else logToPopup('gache but kono sara nei T_T');
+      }
+      else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
+    }
+  );
+});
 
-  sqIdxToggle.addEventListener("change", () => {
-    const isChecked = sqIdxToggle.checked;
-    indexOverlayVisible = isChecked;
-    // Save index overlay state
-    localStorage.setItem("indexOverlayVisible", isChecked.toString());
-    // Send message to content script to toggle index overlay
-    chrome.runtime.sendMessage({
-        type: "TOGGLE_INDEX_OVERLAY",
-        visible: isChecked,
-        ofTower:false
-        }, (response) => {
-          if (response){
-            if(response.status === "done") 
-              logToPopup(isChecked ? "✅ Square indices shown" : "✅ Square indices hidden", "success");
-            else if(response&&response.status==="failed")
-              logToPopup(`❌ Error! Can't draw indices!${response.issue}`);
-            else logToPopup('gache but kono sara nei T_T');
-          }
-          else logToPopup("⚠️ Could not toggle index overlay - make sure you're on a valid maze game page", "warning");
-        }
-      );
-  });
-
-fetchPlayersBtn.addEventListener('click', () => {
+fetchPlayersBtn.addEventListener('click', async () => {
   fetchPlayersBtn.disabled = true;
   fetchPlayersBtn.textContent = "Loading...";
-  // logToPopup('fetch player list button pressed! sending FETCH_PLAYER_LIST request to background.js');
+  
+  const pageKey = await getCurrentPageKey();
+  
   chrome.runtime.sendMessage(
     { type: "FETCH_PLAYER_LIST" },
     (response) => {
-      // logToPopup(`Raw response received: ${JSON.stringify(response)}`);
       fetchPlayersBtn.disabled = false;
       fetchPlayersBtn.innerHTML = '<span class="btn-icon">👥</span><span class="btn-text">Reload Player Solutions</span>';
       if (chrome.runtime.lastError) {
@@ -199,6 +208,8 @@ fetchPlayersBtn.addEventListener('click', () => {
       }
       if (response && response.players) {
         displayPlayerList(response.players);
+        // Save player list for this specific page
+        localStorage.setItem(`${pageKey}_playerList`, JSON.stringify(response.players));
         logToPopup(`✅ Loaded ${response.players.length} player solutions`, "success");
       } else if (response && response.error) {
         logToPopup(`❌ Error: ${response.error}`, "error");
@@ -208,29 +219,62 @@ fetchPlayersBtn.addEventListener('click', () => {
     }
   );
 });
-
-  function loadAdvancedSettings() {
-    // Load advanced section visibility
-    const advancedVisible = localStorage.getItem("advancedSectionVisible");
-    if (advancedVisible === "true") {
-      advancedToggle.checked = true;
-      advancedSection.style.display = "block";
+async function loadSavedPlayerList() {
+  const pageKey = await getCurrentPageKey();
+  const savedPlayers = localStorage.getItem(`${pageKey}_playerList`);
+  
+  if (savedPlayers) {
+    try {
+      const players = JSON.parse(savedPlayers);
+      displayPlayerList(players);
+      logToPopup(`✅ Restored ${players.length} saved player solutions`, "info");
+    } catch (e) {
+      console.error('Failed to parse saved player list:', e);
     }
-
-    // Load index overlay state
-    const indexVisible = localStorage.getItem("indexOverlayVisible");
-    if (indexVisible === "true") {
-      indexToggle.checked = true;
-      indexOverlayVisible = true;
-    }
+  } else {
+    // Hide player list container if no saved data
+    playerListContainer.style.display = "none";
   }
+}
+
+
+  async function loadAdvancedSettings() {
+  const pageKey = await getCurrentPageKey();
+  
+  // Load advanced section visibility for current page
+  const advancedVisible = localStorage.getItem(`${pageKey}_advancedExpanded`);
+  if (advancedVisible === "true") {
+    advancedToggle.checked = true;
+    advancedContent.classList.add("expanded");
+  } else {
+    // Default to collapsed for new pages
+    advancedToggle.checked = false;
+    advancedContent.classList.remove("expanded");
+  }
+
+  // Load tower index overlay state for current page
+  const towerIndexVisible = localStorage.getItem(`${pageKey}_towerIndex`);
+  if (towerIndexVisible === "true") {
+    towerIdxToggle.checked = true;
+  } else {
+    towerIdxToggle.checked = false;
+  }
+
+  // Load square index overlay state for current page
+  const sqIndexVisible = localStorage.getItem(`${pageKey}_sqIndex`);
+  if (sqIndexVisible === "true") {
+    sqIdxToggle.checked = true;
+  } else {
+    sqIdxToggle.checked = false;
+  }
+}
 
   runBtn.onclick = () => {
     const skip = localStorage.getItem("skipSolverConfirm");
     if (skip === "true") {
       triggerSolver();
     } else {
-      modal.style.display = "block";
+      // modal.style.display = "block";
     }
   };
    overlayBtn.onclick = () => {
@@ -250,17 +294,17 @@ fetchPlayersBtn.addEventListener('click', () => {
     else logToPopup("❌ Qverlay mode in unknow state!",'error');
   };
 
-  confirmYes.onclick = () => {
-    if (skipConfirm.checked) {
-      localStorage.setItem("skipSolverConfirm", "true");
-    }
-    modal.style.display = "none";
-    triggerSolver();
-  };
+  // confirmYes.onclick = () => {
+  //   if (skipConfirm.checked) {
+  //     localStorage.setItem("skipSolverConfirm", "true");
+  //   }
+    // modal.style.display = "none";
+  //   triggerSolver();
+  // };
 
-  confirmNo.onclick = () => {
-    modal.style.display = "none";
-  };
+  // confirmNo.onclick = () => {
+  //   modal.style.display = "none";
+  // };
 
   algorithmSelect.onchange = () => {
     // Clear current params when algorithm changes
@@ -717,3 +761,13 @@ fetchPlayersBtn.addEventListener('click', () => {
     }
   }
 });
+
+function getCurrentPageKey() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const currentTab = tabs[0];
+      const pageKey = `page_${btoa(currentTab.url).replace(/[^a-zA-Z0-9]/g, '')}`;
+      resolve(pageKey);
+    });
+  });
+}
